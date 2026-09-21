@@ -8,7 +8,6 @@ export default function Home() {
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredSubject, setHoveredSubject] = useState(null);
 
-  // Mock data with muted, sophisticated grayscale/slate shades
   const metricsData = [
     { day: "13 AGO", subjects: [{ name: "Taller 4", hours: 1.5, color: "#1e293b" }, { name: "Cálculo", hours: 1.0, color: "#475569" }, { name: "Física", hours: 0.5, color: "#64748b" }, { name: "Otros", hours: 0.5, color: "#94a3b8" }] },
     { day: "14 AGO", subjects: [{ name: "Taller 4", hours: 2.0, color: "#1e293b" }, { name: "Cálculo", hours: 1.5, color: "#475569" }, { name: "Otros", hours: 1.0, color: "#94a3b8" }] },
@@ -137,7 +136,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 4. Integración de Música */}
+              {/* 4. "Integración de Música" */}
               <div className="flex flex-col gap-3">
                 <h3 className="font-bold text-lg">4. Integración de Música</h3>
                 <div className="flex justify-between items-center border border-black rounded-xl p-3">
@@ -153,7 +152,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Metrics Sidebar */}
+      {/* Sidebar de métricas */}
       {showMetrics && (
         <div className="fixed inset-0 z-50 flex justify-start bg-black/20" onClick={() => setShowMetrics(false)}>
           <div 
@@ -207,7 +206,6 @@ export default function Home() {
                             const isHovered = hoveredSubject === sub.name;
                             const isAnyHovered = hoveredSubject !== null;
 
-                            // If a subbar is hovered, highlight matching subject, fade out others to light grey
                             let bgColor = sub.color;
                             if (isAnyHovered) {
                               bgColor = isHovered ? sub.color : "#e2e8f0";
@@ -233,7 +231,6 @@ export default function Home() {
                     );
                   })}
 
-                  {/* Floating Tooltip Dissecting the Hovered Bar */}
                   {hoveredDay && (
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black text-white p-3 shadow-xl z-20 text-xs w-60 border border-gray-700 pointer-events-none">
                       <div className="flex justify-between items-center border-b border-gray-700 pb-1.5 mb-2 font-mono">

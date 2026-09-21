@@ -12,9 +12,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "NextApp | Mockup con Next.js y App Router",
-  description: "Proyecto y plantilla moderna con Next.js, App Router, JavaScript y Tailwind CSS para desarrollo ágil y prototipado.",
-  keywords: ["Next.js", "App Router", "JavaScript", "React", "Tailwind CSS", "Mockup"],
+  title: "Pomodoro Tracker",
+  description: "",
+  keywords: ["Next.js", "App Router", "JavaScript", "React", "Mockup"],
 };
 
 export default function RootLayout({ children }) {
