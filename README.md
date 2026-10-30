@@ -2,13 +2,13 @@
 
 ## Descripción general
 
-Pomodoro Tracker es una aplicación web pensada para ayudar a estudiantes a organizar su tiempo de estudio mediante la técnica Pomodoro: alternar periodos de concentración con pausas breves. Por ejemplo, se puede estudiar durante 50 minutos y descansar durante 10.
+Pomodoro Tracker es una aplicación web pensada para ayudar no solo a estudiantes, sino también a profesionales y cualquier persona que desee organizar su tiempo, tanto de estudio como de trabajo, mediante la técnica Pomodoro: alternar periodos de concentración con pausas breves. Por ejemplo, se puede estudiar durante 50 minutos y descansar durante 10.
 
 Usar el cronómetro del teléfono obliga a revisar y controlar manualmente cada intervalo. Además, sin un registro de actividad es difícil saber cuánto se ha avanzado hacia una meta diaria. Pomodoro Tracker busca simplificar ese proceso y fomentar un hábito de estudio constante: el usuario puede configurar sus intervalos, organizar objetivos y consultar su progreso.
 
 La aplicación permite utilizar un temporizador con ciclos de estudio y descanso, recibir avisos sonoros al cambiar de fase, configurar la duración de los intervalos y consultar una vista de métricas. El proyecto también contempla objetivos de estudio, registro de sesiones y vinculación con servicios de música como Spotify o Apple Music.
 
-> **Estado actual:** en esta etapa SPRINT 2, el temporizador y su configuración funcionan en el navegador, la vista de métricas solo contiene datos de demostración. Las funciones de cuenta de usuario, objetivos persistentes, historial de sesiones y conexión a música están definidas como parte de la solución propuesta, pero sus endpoints o integraciones todavía no aparecen implementados en el código del repositorio. La API descrita más abajo documenta el contrato proporcionado para esas funciones; confirmar su disponibilidad en el servidor antes de depender de ellas.
+> **Estado actual:** en esta etapa del SPRINT 2, el temporizador y su configuración funcionan en el navegador. Las metas y las horas registradas se guardan en `localStorage`, y las métricas se calculan a partir de esos datos. Las cuentas de usuario, la persistencia en servidor, el historial de sesiones y la conexión a servicios de música aún no están implementados.`.
 
 
 **Capturas de pantalla:** TODO
@@ -20,7 +20,7 @@ La aplicación permite utilizar un temporizador con ciclos de estudio y descanso
 
 ### Requisitos
 
-- Node.js y npm. TODO — indicar versiones mínimas verificadas.
+- Node.js 26.12.1 y npm 11.20.0
 
 ### Ejecución local
 
@@ -74,8 +74,9 @@ flowchart LR
 	 APP --> GOALS[Metas y métricas]
 	 GOALS --> LS[(localStorage del navegador)]
 	 APP --> API[Route Handler: GET /api/hello]
+	 APP -. backend para cuentas y sesiones .-> BE[TODO]
+	 BE -. persistencia .-> DB[TODO]
 	 APP -. integración externa .-> EXT[TODO]
-	 API -. backend y base de datos .-> DB[TODO]
 ```
 
 Backend para cuentas, metas y sesiones: TODO
