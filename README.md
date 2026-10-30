@@ -1,36 +1,138 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Pomodoro Tracker
 
-## Getting Started
+## Descripción general
 
-First, run the development server:
+Pomodoro Tracker es una aplicación web pensada para ayudar a estudiantes a organizar su tiempo de estudio mediante la técnica Pomodoro: alternar periodos de concentración con pausas breves. Por ejemplo, se puede estudiar durante 50 minutos y descansar durante 10.
+
+Usar el cronómetro del teléfono obliga a revisar y controlar manualmente cada intervalo. Además, sin un registro de actividad es difícil saber cuánto se ha avanzado hacia una meta diaria. Pomodoro Tracker busca simplificar ese proceso y fomentar un hábito de estudio constante: el usuario puede configurar sus intervalos, organizar objetivos y consultar su progreso.
+
+La aplicación permite utilizar un temporizador con ciclos de estudio y descanso, recibir avisos sonoros al cambiar de fase, configurar la duración de los intervalos y consultar una vista de métricas. El proyecto también contempla objetivos de estudio, registro de sesiones y vinculación con servicios de música como Spotify o Apple Music.
+
+> **Estado actual:** en esta etapa SPRINT 2, el temporizador y su configuración funcionan en el navegador, la vista de métricas solo contiene datos de demostración. Las funciones de cuenta de usuario, objetivos persistentes, historial de sesiones y conexión a música están definidas como parte de la solución propuesta, pero sus endpoints o integraciones todavía no aparecen implementados en el código del repositorio. La API descrita más abajo documenta el contrato proporcionado para esas funciones; confirmar su disponibilidad en el servidor antes de depender de ellas.
+
+
+**Capturas de pantalla:** TODO
+
+<details>
+<summary><strong>Instalación</strong></summary>
+
+## Instalación
+
+### Requisitos
+
+- Node.js y npm. TODO — indicar versiones mínimas verificadas.
+
+### Ejecución local
+
+1. Clonar el repositorio y entrar en la carpeta del proyecto:
+
+	```bash
+	git clone https://github.com/FrancoNavarreteN/TALLER4.git
+	cd TALLER4
+	```
+
+2. Instalar dependencias:
+
+	```bash
+	npm install
+	```
+
+3. Iniciar el servidor de desarrollo:
+
+	```bash
+	npm run dev
+	```
+
+4. Abrir [http://localhost:3000](http://localhost:3000).
+
+Para crear y ejecutar una compilación de producción:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Para ejecutar ESLint:
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```bash
+npm run lint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+</details>
 
-## Learn More
+<details>
+<summary><strong>Arquitectura del sistema</strong></summary>
 
-To learn more about Next.js, take a look at the following resources:
+## Arquitectura del sistema
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+La aplicación está desarrollada con Next.js App Router, React y JavaScript. La interfaz y el temporizador funcionan en el navegador. Las metas y el registro de horas se guardan en `localStorage` bajo la clave `pomodoro.metas.v1`; las métricas se calculan a partir de esos datos. Los avisos sonoros se generan con Web Audio API.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```mermaid
+flowchart LR
+	 U[Usuario] --> APP[Frontend Next.js y React]
+	 APP --> TIMER[Temporizador y configuración]
+	 APP --> GOALS[Metas y métricas]
+	 GOALS --> LS[(localStorage del navegador)]
+	 APP --> API[Route Handler: GET /api/hello]
+	 APP -. integración externa .-> EXT[TODO]
+	 API -. backend y base de datos .-> DB[TODO]
+```
 
-## Deploy on Vercel
+Backend para cuentas, metas y sesiones: TODO
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Base de datos: TODO
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Servicios externos: TODO
+
+</details>
+
+<details>
+<summary><strong>API</strong></summary>
+
+## API
+
+### `GET /api/hello`
+
+Endpoint interno de demostración. No requiere autenticación ni cuerpo de solicitud.
+
+**Parámetros de consulta**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+|---|---|---:|---|
+| `name` | String | No | Nombre del saludo. Si se omite o está vacío, se utiliza `Invitado`. |
+
+**Ejemplo**
+
+```http
+GET /api/hello?name=Ana
+```
+
+**Respuesta `200 OK`**
+
+```json
+{
+  "status": "success",
+  "message": "¡Hola, Ana! Tu endpoint en Next.js está funcionando correctamente.",
+  "router": "App Router (Next.js)",
+  "language": "JavaScript",
+  "timestamp": "<fecha y hora ISO 8601>",
+  "details": {
+	 "location": "src/app/api/hello/route.js",
+	 "method": "GET",
+	 "environment": "<entorno de Next.js>"
+  }
+}
+```
+
+Otros endpoints: TODO
+
+</details>
+
+<details>
+<summary><strong>Manual de usuario</strong></summary>
+
+## Manual de usuario
+
+TODO
+
+</details>
