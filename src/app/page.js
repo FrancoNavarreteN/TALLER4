@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import PomodoroTimer from "../components/PomodoroTimer";
 import ConfigSidebar from "../components/ConfigSidebar";
 import MetricsSidebar from "../components/MetricsSidebar";
@@ -25,10 +26,19 @@ export default function Home() {
       <header className="flex justify-between w-full">
         <button 
           onClick={() => setShowMetrics(true)}
-          className="border-2 border-black rounded-full px-6 py-2 text-xl cursor-pointer hover:bg-gray-100 transition-colors"
-        >
+          className="border-2 border-black rounded-full px-6 py-2 text-xl cursor-pointer hover:bg-gray-100 transition-colors">
           Métricas
         </button>
+
+        {/* PARA MI GRUPO: mover el boton para la izquierda al lado de metricas */}
+        
+        <Link
+          href="/metas"
+          className="border-2 border-black rounded-full px-6 py-2 text-xl hover:bg-gray-100 transition-colors"
+        >
+          Metas
+        </Link>
+
         <button 
           onClick={() => {
             if (!isTimerActive) setShowConfig(true);
