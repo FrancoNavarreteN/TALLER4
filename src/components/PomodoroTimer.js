@@ -63,6 +63,16 @@ export default function PomodoroTimer({ studyTime, breakTime, cycles, onActiveCh
 
   const isActive = isRunning || isSessionStarted;
 
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    if (h > 0) {
+      return `${h}:${m}:${s}`;
+    }
+    return `${m}:${s}`;
+  };
+
   useEffect(() => {
     if (onActiveChange) {
       onActiveChange(isActive);
@@ -155,16 +165,6 @@ export default function PomodoroTimer({ studyTime, breakTime, cycles, onActiveCh
     setMode("Estudio");
     setCurrentCycle(1);
     setTimeLeft(studyTime * 60);
-  };
-
-  const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
-    const s = (seconds % 60).toString().padStart(2, "0");
-    if (h > 0) {
-      return `${h}:${m}:${s}`;
-    }
-    return `${m}:${s}`;
   };
 
   // Helper para dibujar los circulitos de los ciclos
