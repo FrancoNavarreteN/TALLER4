@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CloseIcon } from "./icons/Icons";
 
 export default function MetricsSidebar({ onClose }) {
   const [hoveredDay, setHoveredDay] = useState(null);
@@ -38,9 +39,10 @@ export default function MetricsSidebar({ onClose }) {
             </div>
             <button 
               onClick={onClose}
-              className="border-2 border-black w-8 h-8 flex items-center justify-center text-lg font-bold cursor-pointer hover:bg-gray-100"
+              className="border-2 border-black w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors"
+              aria-label="Cerrar métricas"
             >
-              ✕
+              <CloseIcon className="w-4 h-4" />
             </button>
           </div>
 
@@ -58,7 +60,7 @@ export default function MetricsSidebar({ onClose }) {
 
                 return (
                   <div 
-                    key={idx}
+                    key={idx} 
                     className="flex-1 h-full flex flex-col justify-end items-center relative cursor-pointer"
                     onMouseEnter={() => setHoveredDay(item)}
                     onMouseLeave={() => {

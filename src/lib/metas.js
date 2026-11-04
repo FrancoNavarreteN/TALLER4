@@ -29,7 +29,7 @@ function getSnapshot() {
   }
 }
 
-// Esta función es para el renderizado del lado del servidor, donde no hay acceso a localStorage. Devuelve un estado vacío. //
+// Esta función es para el renderizado del lado del servidor, donde no hay acceso a localStorage //
 function getServerSnapshot() {
   return "";
 }
@@ -48,10 +48,8 @@ function parse(raw) {
   }
 }
 
-// Función para escribir los datos de metas en localStorage y notificar a los listeners //
 function write(data) {
-    // Guardar en localStorage y notificar a los listeners //
-    try {
+  try {
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch (err) {
     console.error("No se pudo guardar en localStorage:", err);
@@ -67,28 +65,53 @@ export function dayKey(date = new Date()) {
   return `${y}-${m}-${d}`;
 }
 
-// Función para convertir una clave de fecha (YYYY-MM-DD) a un objeto Date //
 function keyToDate(key) {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-// Función para calcular la diferencia en días entre dos claves de fecha //
 export function daysBetween(fromKey, toKey) {
   return Math.round((keyToDate(toKey) - keyToDate(fromKey)) / 86400000);
 }
 
-export function lastDays(n = 7) {
-  const out = [];
-  const today = new Date();
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
-    out.push({
-      key: dayKey(d),
-      label: d.toLocaleDateString("es-CL", { weekday: "narrow" }).toUpperCase(),
+// Función que calcula los 7 días de la semana actual (de Lunes a Domingo)
+export function currentWeekDates(baseDate = new Date()) {
+  const date = new Date(baseDate);
+  // Domingo = 0, Lunes = 1 ... Sábado = 6.
+  // Transformamos para que Lunes = 0 ... Domingo = 6.
+  const dayOfWeek = (date.getDay() + 6) % 7;
+
+  const monday = new Date(date);
+  monday.setDate(date.getDate() - dayOfWeek);
+
+  const days = [];
+  const todayKey = dayKey(new Date());
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const key = dayKey(d);
+    const shortDay = d.toLocaleDateString("es-CL", { weekday: "short" }).replace(".", "").slice(0, 2).toUpperCase();
+    days.push({
+      key,
+      dayNumber: d.getDate(),
+      label: `${shortDay} ${d.getDate()}`,
+      shortDay,
+      isToday: key === todayKey,
+      isFuture: key > todayKey,
+      date: d,
     });
   }
-  return out;
+
+  const startDay = days[0].date.getDate();
+  const endDay = days[6].date.getDate();
+  const startMonth = days[0].date.toLocaleDateString("es-CL", { month: "short" }).replace(".", "");
+  const endMonth = days[6].date.toLocaleDateString("es-CL", { month: "short" }).replace(".", "");
+
+  const rangeLabel = startMonth === endMonth
+    ? `${startDay} - ${endDay} ${startMonth}`
+    : `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
+
+  return { days, rangeLabel };
 }
 
 // Función para formatear horas a un string con hasta dos decimales, eliminando ceros innecesarios //
@@ -97,8 +120,7 @@ export function formatHours(h) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0$/, "");
 }
 
-// Hook personalizado para manejar el estado de metas, incluyendo agregar, 
-// eliminar, registrar horas y deshacer registros del día actual //
+// Hook personalizado para manejar el estado de metas
 export function useMetas() {
   const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const data = useMemo(() => parse(raw), [raw]);
@@ -106,7 +128,7 @@ export function useMetas() {
   const addGoal = useCallback(({ name, goalHours, deadline }) => {
     const current = parse(getSnapshot());
     const goal = {
-      id: Date.now(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: name.trim(),
       goalHours: Number(goalHours),
       created: new Date().toISOString(),
@@ -115,11 +137,27 @@ export function useMetas() {
     write({ ...current, goals: [goal, ...current.goals] });
   }, []);
 
+  const updateGoal = useCallback((goalId, updates) => {
+    const current = parse(getSnapshot());
+    write({
+      ...current,
+      goals: current.goals.map((g) => {
+        if (String(g.id) !== String(goalId)) return g;
+        return {
+          ...g,
+          name: updates.name ? updates.name.trim() : g.name,
+          goalHours: updates.goalHours !== undefined ? Number(updates.goalHours) : g.goalHours,
+          deadline: updates.deadline !== undefined ? (updates.deadline || null) : g.deadline,
+        };
+      }),
+    });
+  }, []);
+
   const deleteGoal = useCallback((goalId) => {
     const current = parse(getSnapshot());
     write({
-      goals: current.goals.filter((g) => g.id !== goalId),
-      logs: current.logs.filter((l) => l.goalId !== goalId),
+      goals: current.goals.filter((g) => String(g.id) !== String(goalId)),
+      logs: current.logs.filter((l) => String(l.goalId) !== String(goalId)),
     });
   }, []);
 
@@ -127,10 +165,10 @@ export function useMetas() {
     const value = Number(hours);
     if (!Number.isFinite(value) || value <= 0) return;
     const current = parse(getSnapshot());
-    const existing = current.logs.find((l) => l.goalId === goalId && l.date === date);
+    const existing = current.logs.find((l) => String(l.goalId) === String(goalId) && l.date === date);
     const logs = existing
       ? current.logs.map((l) => (l === existing ? { ...l, hours: l.hours + value } : l))
-      : [...current.logs, { id: Date.now(), goalId, date, hours: value }];
+      : [...current.logs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, goalId: String(goalId), date, hours: value }];
     write({ ...current, logs });
   }, []);
 
@@ -139,20 +177,27 @@ export function useMetas() {
     const today = dayKey();
     write({
       ...current,
-      logs: current.logs.filter((l) => !(l.goalId === goalId && l.date === today)),
+      logs: current.logs.filter((l) => !(String(l.goalId) === String(goalId) && l.date === today)),
     });
   }, []);
 
-  // Metas con su progreso ya calculado
+  // Metas con su progreso calculado (incluyendo la semana actual)
   const goals = useMemo(() => {
     const today = dayKey();
+    const { days: weekDays } = currentWeekDates();
+    const weekKeys = new Set(weekDays.map((d) => d.key));
+
     return data.goals.map((goal) => {
-      const logs = data.logs.filter((l) => l.goalId === goal.id);
+      const logs = data.logs.filter((l) => String(l.goalId) === String(goal.id));
       const doneHours = logs.reduce((sum, l) => sum + l.hours, 0);
       const byDay = {};
       logs.forEach((l) => {
         byDay[l.date] = (byDay[l.date] || 0) + l.hours;
       });
+      const weekHours = logs
+        .filter((l) => weekKeys.has(l.date))
+        .reduce((sum, l) => sum + l.hours, 0);
+
       const completed = doneHours >= goal.goalHours;
       const overdue = !completed && goal.deadline && goal.deadline < today;
       return {
@@ -160,10 +205,11 @@ export function useMetas() {
         doneHours,
         byDay,
         todayHours: byDay[today] || 0,
+        weekHours,
         state: completed ? "completada" : overdue ? "vencida" : "activa",
       };
     });
   }, [data]);
 
-  return { goals, addGoal, deleteGoal, logHours, undoToday };
+  return { goals, addGoal, updateGoal, deleteGoal, logHours, undoToday };
 }
