@@ -45,19 +45,6 @@ La aplicación permite utilizar un temporizador con ciclos de estudio y descanso
 
 4. Abrir [http://localhost:3000](http://localhost:3000).
 
-Para crear y ejecutar una compilación de producción:
-
-```bash
-npm run build
-npm run start
-```
-
-Para ejecutar ESLint:
-
-```bash
-npm run lint
-```
-
 </details>
 
 <details>
