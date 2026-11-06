@@ -168,9 +168,10 @@ export default function PomodoroTimer({
         currentCycle,
         endTime: endTimeRef.current,
         timestamp: Date.now(),
+        activeGoalId: activeGoal ? String(activeGoal.id) : null,
       }));
     } catch {}
-  }, [timeLeft, isRunning, mode, currentCycle, safeStudyTime]);
+  }, [timeLeft, isRunning, mode, currentCycle, safeStudyTime, activeGoal]);
 
   const isSessionStarted = 
     (mode === "Estudio" && timeLeft < safeStudyTime * 60) || 
@@ -261,7 +262,7 @@ export default function PomodoroTimer({
       interval = setInterval(() => {
         if (!endTimeRef.current) return;
         const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
-        setTimeLeft(remaining);
+        setTimeLeft((prev) => (prev !== remaining ? remaining : prev));
 
         if (remaining === 0) {
           clearInterval(interval);
@@ -313,7 +314,7 @@ export default function PomodoroTimer({
     executeFullReset();
   };
 
-  const executeFullReset = () => {
+  const executeFullReset = useCallback(() => {
     setIsRunning(false);
     endTimeRef.current = null;
     setMode("Estudio");
@@ -322,7 +323,23 @@ export default function PomodoroTimer({
     setShowPartialSaveModal(false);
     setShowCompletionModal(false); // Cierra completamente el modal de felicitaciones
     localStorage.removeItem(SESSION_STORAGE_KEY);
-  };
+  }, [safeStudyTime]);
+
+  // Cerrar modales con la tecla Escape
+  useEffect(() => {
+    if (!showPartialSaveModal && !showCompletionModal) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (showPartialSaveModal) {
+          setShowPartialSaveModal(false);
+        } else if (showCompletionModal) {
+          executeFullReset();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPartialSaveModal, showCompletionModal, executeFullReset]);
 
   const handleSavePartialAndReset = () => {
     if (onStudyCompleted && partialMinutesToSave > 0) {
@@ -354,27 +371,24 @@ export default function PomodoroTimer({
   };
 
   const renderCycles = () => {
-    const cycleDots = [];
+    const cycleBars = [];
     for (let i = 1; i <= safeCycles; i++) {
+      let stateClass = "bg-zinc-200";
       if (i < currentCycle) {
-        cycleDots.push(<div key={i} className="w-4 h-4 rounded-full bg-black" title={`Ciclo ${i} completado`}></div>);
+        stateClass = "bg-zinc-900";
       } else if (i === currentCycle) {
-        if (mode === "Estudio") {
-          cycleDots.push(
-            <div 
-              key={i} 
-              className={`w-4 h-4 rounded-full border-2 border-black ${isRunning ? 'animate-pulse' : ''} bg-black/60`}
-              title={`Ciclo ${i} en curso`}
-            ></div>
-          );
-        } else {
-          cycleDots.push(<div key={i} className="w-4 h-4 rounded-full border-2 border-black bg-black" title={`Ciclo ${i} completado`}></div>);
-        }
-      } else {
-        cycleDots.push(<div key={i} className="w-4 h-4 rounded-full border-2 border-black" title={`Ciclo ${i}`}></div>);
+        stateClass = mode === "Estudio" && isRunning ? "bg-zinc-900 animate-pulse" : "bg-zinc-700";
       }
+
+      cycleBars.push(
+        <div
+          key={i}
+          className={`h-1.5 w-6 sm:w-8 transition-colors duration-300 ${stateClass}`}
+          title={`Ciclo ${i} de ${safeCycles}`}
+        />
+      );
     }
-    return cycleDots;
+    return cycleBars;
   };
 
   const totalTimeForMode = 
@@ -386,133 +400,175 @@ export default function PomodoroTimer({
 
   const isFullTime = timeLeft === totalTimeForMode;
 
+  // Anillo SVG
+  const radius = 136;
+  const circumference = 2 * Math.PI * radius;
+  const progressRatio = totalTimeForMode > 0 ? timeLeft / totalTimeForMode : 0;
+  const strokeDashoffset = circumference * (1 - progressRatio);
+
   return (
-    <div className="flex flex-col items-center relative">
-      {/* Indicadores de ciclo */}
-      <div className="flex items-center gap-3 mb-6">
+    <div className="flex flex-col items-center relative w-full max-w-md mx-auto">
+      {/* Indicadores de ciclo segmentados y minimalistas */}
+      <div className="flex items-center gap-2 mb-8" aria-label="Progreso de ciclos">
         {renderCycles()}
       </div>
 
-      {/* Círculo del Temporizador */}
-      <div 
-        className="w-80 h-80 md:w-[28rem] md:h-[28rem] border-2 border-black rounded-full flex flex-col items-center justify-center transition-colors duration-500" 
-        style={{ 
-          backgroundColor: mode === "Descanso" ? "#e0f2fe" : mode === "Descanso Largo" ? "#dcfce7" : "transparent" 
-        }}
-      >
-        <span className="text-sm md:text-lg tracking-widest uppercase mb-4 font-semibold text-center px-4">
-          {mode === "Estudio" 
-            ? `Modo Estudio (Ciclo ${currentCycle}/${safeCycles})` 
-            : mode === "Descanso"
-            ? `Descanso Corto (Ciclo ${currentCycle}/${safeCycles})`
-            : `Descanso Largo (${safeLongBreakTime} min)`}
-        </span>
-        
-        <span className="text-6xl md:text-8xl mb-6 font-mono select-none">
-          {formatTime(timeLeft)}
-        </span>
-        
-        {/* Barra de botones unificada */}
-        <div className="flex gap-3 md:gap-4 items-center flex-wrap justify-center px-4">
-          {!isRunning && isFullTime ? (
-            <>
-              <button 
-                onClick={startTimer}
-                className="flex items-center gap-2 border-2 border-black rounded-full px-5 md:px-6 py-2 text-base md:text-xl font-semibold hover:bg-black hover:text-white transition-colors cursor-pointer"
-              >
-                <PlayIcon className="w-5 h-5 fill-current" />
-                <span>
-                  {mode === "Descanso" 
-                    ? "Comenzar Descanso" 
-                    : mode === "Descanso Largo"
-                    ? "Iniciar Descanso Largo"
-                    : currentCycle > 1 
-                    ? "Comenzar Estudio" 
-                    : "Comenzar"}
-                </span>
-              </button>
-              {isSessionStarted && (
-                <button 
-                  onClick={handleResetRequest} 
-                  className="flex items-center gap-1.5 border-2 border-black rounded-full px-4 md:px-5 py-2 text-base md:text-xl hover:bg-gray-200 transition-colors cursor-pointer"
-                >
-                  <RotateCcwIcon className="w-5 h-5" />
-                  <span>Reiniciar</span>
-                </button>
-              )}
-            </>
-          ) : isRunning ? (
-            <>
-              <button 
-                onClick={toggleTimer} 
-                className="flex items-center gap-2 border-2 border-black rounded-full px-5 md:px-6 py-2 text-base md:text-xl font-semibold hover:bg-black hover:text-white transition-colors cursor-pointer"
-              >
-                <PauseIcon className="w-5 h-5 fill-current" />
-                <span>Pausar</span>
-              </button>
-              <button 
-                onClick={handleSkipPhase} 
-                className="flex items-center gap-1.5 border-2 border-black rounded-full px-4 md:px-5 py-2 text-base md:text-xl hover:bg-gray-200 transition-colors cursor-pointer"
-                title="Avanzar a la siguiente fase"
-              >
-                <SkipForwardIcon className="w-5 h-5" />
-                <span>Saltar</span>
-              </button>
-              <button 
-                onClick={handleResetRequest} 
-                className="flex items-center gap-1.5 border-2 border-black rounded-full px-4 md:px-5 py-2 text-base md:text-xl hover:bg-gray-200 transition-colors cursor-pointer"
-              >
-                <RotateCcwIcon className="w-5 h-5" />
-                <span>Reiniciar</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button 
-                onClick={toggleTimer} 
-                className="flex items-center gap-2 border-2 border-black rounded-full px-5 md:px-6 py-2 text-base md:text-xl font-semibold hover:bg-black hover:text-white transition-colors cursor-pointer"
-              >
-                <PlayIcon className="w-5 h-5 fill-current" />
-                <span>Reanudar</span>
-              </button>
-              <button 
-                onClick={handleSkipPhase} 
-                className="flex items-center gap-1.5 border-2 border-black rounded-full px-4 md:px-5 py-2 text-base md:text-xl hover:bg-gray-200 transition-colors cursor-pointer"
-                title="Avanzar a la siguiente fase"
-              >
-                <SkipForwardIcon className="w-5 h-5" />
-                <span>Saltar</span>
-              </button>
-              <button 
-                onClick={handleResetRequest} 
-                className="flex items-center gap-1.5 border-2 border-black rounded-full px-4 md:px-5 py-2 text-base md:text-xl hover:bg-gray-200 transition-colors cursor-pointer"
-              >
-                <RotateCcwIcon className="w-5 h-5" />
-                <span>Reiniciar</span>
-              </button>
-            </>
+      {/* Círculo del Temporizador con Anillo Radial SVG */}
+      <div className="relative w-72 h-72 sm:w-80 sm:h-80 md:w-88 md:h-88 flex items-center justify-center">
+        <svg
+          className="w-full h-full transform -rotate-90"
+          viewBox="0 0 300 300"
+        >
+          {/* Pista de fondo */}
+          <circle
+            cx="150"
+            cy="150"
+            r={radius}
+            stroke="currentColor"
+            strokeWidth="4"
+            fill="none"
+            className="text-zinc-100"
+          />
+          {/* Anillo de progreso dinámico */}
+          <circle
+            cx="150"
+            cy="150"
+            r={radius}
+            stroke="currentColor"
+            strokeWidth="4"
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            className="text-zinc-900"
+          />
+        </svg>
+
+        {/* Contenido centrado dentro del anillo */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 select-none">
+          <span className="text-[11px] sm:text-xs font-semibold tracking-widest uppercase text-zinc-600 mb-2">
+            {mode === "Estudio" 
+              ? `Estudio · ${currentCycle}/${safeCycles}` 
+              : mode === "Descanso"
+              ? `Descanso · ${currentCycle}/${safeCycles}`
+              : `Descanso Largo`}
+          </span>
+          
+          <span className="text-6xl sm:text-7xl md:text-8xl font-mono font-light tracking-tight text-zinc-900 tabular-nums">
+            {formatTime(timeLeft)}
+          </span>
+
+          {activeGoal && (
+            <span className="text-xs text-zinc-600 mt-2 max-w-[180px] truncate" title={activeGoal.name}>
+              {activeGoal.name}
+            </span>
           )}
         </div>
+      </div>
+
+      {/* Barra de Controles Ergonómica */}
+      <div className="flex items-center gap-2.5 mt-8 flex-wrap justify-center">
+        {!isRunning && isFullTime ? (
+          <>
+            <button 
+              onClick={startTimer}
+              className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-800 transition-colors duration-75 shadow-xs cursor-pointer border border-zinc-900"
+            >
+              <PlayIcon className="w-4 h-4 fill-current" />
+              <span>
+                {mode === "Descanso" 
+                  ? "Comenzar descanso" 
+                  : mode === "Descanso Largo"
+                  ? "Iniciar descanso largo"
+                  : currentCycle > 1 
+                  ? "Continuar estudio" 
+                  : "Comenzar"}
+              </span>
+            </button>
+            {isSessionStarted && (
+              <button 
+                onClick={handleResetRequest} 
+                className="flex items-center gap-1.5 border border-zinc-200 text-zinc-600 px-3.5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-50 hover:text-zinc-900 transition-colors duration-75 cursor-pointer"
+                title="Reiniciar temporizador"
+              >
+                <RotateCcwIcon className="w-4 h-4" />
+                <span>Reiniciar</span>
+              </button>
+            )}
+          </>
+        ) : isRunning ? (
+          <>
+            <button 
+              onClick={toggleTimer} 
+              className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-800 transition-colors duration-75 shadow-xs cursor-pointer border border-zinc-900"
+            >
+              <PauseIcon className="w-4 h-4 fill-current" />
+              <span>Pausar</span>
+            </button>
+            <button 
+              onClick={handleSkipPhase} 
+              className="flex items-center gap-1.5 border border-zinc-200 text-zinc-600 px-3.5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-50 hover:text-zinc-900 transition-colors duration-75 cursor-pointer"
+              title="Avanzar a la siguiente fase"
+            >
+              <SkipForwardIcon className="w-4 h-4" />
+              <span>Saltar</span>
+            </button>
+            <button 
+              onClick={handleResetRequest} 
+              className="flex items-center gap-1.5 border border-zinc-200 text-zinc-600 px-3.5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-50 hover:text-zinc-900 transition-colors duration-75 cursor-pointer"
+              title="Reiniciar temporizador"
+            >
+              <RotateCcwIcon className="w-4 h-4" />
+              <span>Reiniciar</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button 
+              onClick={toggleTimer} 
+              className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-800 transition-colors duration-75 shadow-xs cursor-pointer border border-zinc-900"
+            >
+              <PlayIcon className="w-4 h-4 fill-current" />
+              <span>Reanudar</span>
+            </button>
+            <button 
+              onClick={handleSkipPhase} 
+              className="flex items-center gap-1.5 border border-zinc-200 text-zinc-600 px-3.5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-50 hover:text-zinc-900 transition-colors duration-75 cursor-pointer"
+              title="Avanzar a la siguiente fase"
+            >
+              <SkipForwardIcon className="w-4 h-4" />
+              <span>Saltar</span>
+            </button>
+            <button 
+              onClick={handleResetRequest} 
+              className="flex items-center gap-1.5 border border-zinc-200 text-zinc-600 px-3.5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-50 hover:text-zinc-900 transition-colors duration-75 cursor-pointer"
+              title="Reiniciar temporizador"
+            >
+              <RotateCcwIcon className="w-4 h-4" />
+              <span>Reiniciar</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Modal de confirmación para guardar tiempo parcial al reiniciar */}
       {showPartialSaveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white border-2 border-black rounded-2xl p-6 max-w-sm w-full text-center flex flex-col items-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-            <h3 className="text-xl font-bold mb-2">¿Guardar tiempo estudiado?</h3>
-            <p className="text-sm text-gray-700 mb-6">
-              Estudiaste <strong>{partialMinutesToSave} minutos</strong> en este bloque para tu meta <strong>{activeGoal?.name}</strong>. ¿Deseas registrarlos antes de reiniciar?
+          <div className="bg-white border border-zinc-200 p-6 max-w-sm w-full text-center flex flex-col items-center shadow-lg">
+            <h3 className="text-lg font-semibold text-zinc-900 mb-2">¿Guardar tiempo estudiado?</h3>
+            <p className="text-sm text-zinc-600 mb-6">
+              Estudiaste <strong className="text-zinc-900 font-semibold">{partialMinutesToSave} minutos</strong> en este bloque para tu meta <strong className="text-zinc-900 font-semibold">{activeGoal?.name}</strong>. ¿Deseas registrarlos antes de reiniciar?
             </p>
-            <div className="flex gap-3 w-full">
+            <div className="flex gap-2.5 w-full">
               <button
                 onClick={handleSavePartialAndReset}
-                className="flex-1 border-2 border-black rounded-full py-2 font-bold bg-black text-white hover:bg-gray-800 transition-colors cursor-pointer text-sm"
+                className="flex-1 bg-zinc-900 text-white py-2 font-medium text-xs sm:text-sm hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-900"
               >
-                Sí, guardar y reiniciar
+                Guardar y reiniciar
               </button>
               <button
                 onClick={executeFullReset}
-                className="flex-1 border-2 border-black rounded-full py-2 font-bold hover:bg-gray-100 transition-colors cursor-pointer text-sm"
+                className="flex-1 border border-zinc-200 text-zinc-600 py-2 font-medium text-xs sm:text-sm hover:bg-zinc-50 hover:text-zinc-900 transition-colors cursor-pointer"
               >
                 Descartar
               </button>
@@ -528,46 +584,48 @@ export default function PomodoroTimer({
           onClick={executeFullReset}
         >
           <div 
-            className="bg-white border-2 border-black rounded-2xl p-8 max-w-sm w-full text-center flex flex-col items-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] relative"
+            className="bg-white border border-zinc-200 p-6 sm:p-7 max-w-sm w-full text-center flex flex-col items-center shadow-lg relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Botón X de cerrar */}
             <button
               type="button"
               onClick={executeFullReset}
-              className="absolute top-4 right-4 text-gray-500 hover:text-black cursor-pointer"
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 cursor-pointer p-1 transition-colors"
               aria-label="Cerrar modal"
             >
-              <CloseIcon className="w-5 h-5" />
+              <CloseIcon className="w-4 h-4" />
             </button>
 
-            <div className="w-16 h-16 rounded-full border-2 border-black flex items-center justify-center text-3xl mb-4 bg-amber-100 text-amber-800">
-              <TrophyIcon className="w-8 h-8" />
+            <div className="w-12 h-12 bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-800 mb-4">
+              <TrophyIcon className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-bold mb-2">¡Felicitaciones!</h3>
-            <p className="text-gray-700 text-sm mb-4">
+            
+            <h3 className="text-xl font-semibold text-zinc-900 mb-1.5">¡Felicitaciones!</h3>
+            <p className="text-zinc-600 text-sm mb-4">
               {safeCycles === 1 
-                ? "Has completado tu 1 ciclo de pomodoro con éxito." 
+                ? "Has completado tu ciclo de pomodoro con éxito." 
                 : `Has completado tus ${safeCycles} ciclos de pomodoro con éxito.`}
             </p>
+
             {activeGoal && (
-              <p className="flex items-center justify-center gap-1.5 text-xs bg-emerald-50 border border-emerald-500 text-emerald-900 rounded-lg p-2.5 mb-5 text-center">
-                <GoalIcon className="w-4 h-4 shrink-0 text-emerald-700" />
+              <p className="flex items-center justify-center gap-1.5 text-xs bg-zinc-50 border border-zinc-200 text-zinc-700 p-2.5 mb-5 text-center w-full">
+                <GoalIcon className="w-4 h-4 shrink-0 text-zinc-600" />
                 <span>
-                  Se ha registrado el tiempo de tus {safeCycles} {safeCycles === 1 ? "ciclo" : "ciclos"} en tu meta <strong>{activeGoal.name}</strong>.
+                  Tiempo registrado en <strong className="text-zinc-900">{activeGoal.name}</strong>.
                 </span>
               </p>
             )}
-            <div className="flex flex-col gap-2.5 w-full">
+
+            <div className="flex flex-col gap-2 w-full">
               <button
                 onClick={startLongBreak}
-                className="w-full border-2 border-black rounded-full py-2.5 font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors cursor-pointer text-sm"
+                className="w-full bg-zinc-900 text-white py-2.5 font-medium text-sm hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-900"
               >
                 Tomar descanso largo ({safeLongBreakTime} min)
               </button>
               <button
                 onClick={executeFullReset}
-                className="w-full border-2 border-black rounded-full py-2.5 font-bold hover:bg-gray-100 transition-colors cursor-pointer text-sm"
+                className="w-full border border-zinc-200 text-zinc-600 py-2.5 font-medium text-sm hover:bg-zinc-50 hover:text-zinc-900 transition-colors cursor-pointer"
               >
                 Finalizar sesión
               </button>

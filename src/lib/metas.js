@@ -74,6 +74,21 @@ export function daysBetween(fromKey, toKey) {
   return Math.round((keyToDate(toKey) - keyToDate(fromKey)) / 86400000);
 }
 
+// Función que devuelve los últimos N días hasta hoy
+export function lastDays(n = 7) {
+  const out = [];
+  const today = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+    out.push({
+      key: dayKey(d),
+      label: d.toLocaleDateString("es-CL", { weekday: "narrow" }).toUpperCase(),
+      date: d,
+    });
+  }
+  return out;
+}
+
 // Función que calcula los 7 días de la semana actual (de Lunes a Domingo)
 export function currentWeekDates(baseDate = new Date()) {
   const date = new Date(baseDate);
@@ -114,10 +129,19 @@ export function currentWeekDates(baseDate = new Date()) {
   return { days, rangeLabel };
 }
 
-// Función para formatear horas a un string con hasta dos decimales, eliminando ceros innecesarios //
+// Formato compacto de tiempo estilo OpenCode / GitHub (ej. "1h 15m", "25m", "2h", "0h")
 export function formatHours(h) {
-  const rounded = Math.round(h * 100) / 100;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0$/, "");
+  if (h === null || h === undefined || isNaN(h)) return "0h";
+  const num = Number(h);
+  if (num <= 0) return "0h";
+  const totalMinutes = Math.round(num * 60);
+  if (totalMinutes === 0) return "0h";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
 }
 
 // Hook personalizado para manejar el estado de metas
@@ -127,10 +151,11 @@ export function useMetas() {
 
   const addGoal = useCallback(({ name, goalHours, deadline }) => {
     const current = parse(getSnapshot());
+    const cleanHours = Math.min(1000, Math.max(0.5, Number(goalHours) || 0.5));
     const goal = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: name.trim(),
-      goalHours: Number(goalHours),
+      goalHours: cleanHours,
       created: new Date().toISOString(),
       deadline: deadline || null,
     };
@@ -143,10 +168,13 @@ export function useMetas() {
       ...current,
       goals: current.goals.map((g) => {
         if (String(g.id) !== String(goalId)) return g;
+        const cleanHours = updates.goalHours !== undefined
+          ? Math.min(1000, Math.max(0.5, Number(updates.goalHours) || 0.5))
+          : g.goalHours;
         return {
           ...g,
           name: updates.name ? updates.name.trim() : g.name,
-          goalHours: updates.goalHours !== undefined ? Number(updates.goalHours) : g.goalHours,
+          goalHours: cleanHours,
           deadline: updates.deadline !== undefined ? (updates.deadline || null) : g.deadline,
         };
       }),
@@ -157,18 +185,28 @@ export function useMetas() {
     const current = parse(getSnapshot());
     write({
       goals: current.goals.filter((g) => String(g.id) !== String(goalId)),
-      logs: current.logs.filter((l) => String(l.goalId) !== String(goalId)),
+      // Preservar las horas ya estudiadas transfiriéndolas a 'general' para no perder el historial
+      logs: current.logs.map((l) => (String(l.goalId) === String(goalId) ? { ...l, goalId: "general" } : l)),
     });
   }, []);
 
   const logHours = useCallback((goalId, hours, date = dayKey()) => {
     const value = Number(hours);
     if (!Number.isFinite(value) || value <= 0) return;
+    // Límite realista: máximo 24 horas por día
+    const safeValue = Math.min(24, Math.max(0.01, Math.round(value * 100) / 100));
     const current = parse(getSnapshot());
     const existing = current.logs.find((l) => String(l.goalId) === String(goalId) && l.date === date);
+    const currentDayHours = existing ? existing.hours : 0;
+    
+    // No permitir superar 24 horas en un solo día
+    const allowedToAdd = Math.max(0, 24 - currentDayHours);
+    if (allowedToAdd <= 0) return;
+    const actualValue = Math.min(safeValue, allowedToAdd);
+
     const logs = existing
-      ? current.logs.map((l) => (l === existing ? { ...l, hours: l.hours + value } : l))
-      : [...current.logs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, goalId: String(goalId), date, hours: value }];
+      ? current.logs.map((l) => (l === existing ? { ...l, hours: l.hours + actualValue } : l))
+      : [...current.logs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, goalId: String(goalId), date, hours: actualValue }];
     write({ ...current, logs });
   }, []);
 
@@ -182,12 +220,12 @@ export function useMetas() {
   }, []);
 
   // Metas con su progreso calculado (incluyendo la semana actual)
-  const goals = useMemo(() => {
+  const { goals, generalGoal } = useMemo(() => {
     const today = dayKey();
     const { days: weekDays } = currentWeekDates();
     const weekKeys = new Set(weekDays.map((d) => d.key));
 
-    return data.goals.map((goal) => {
+    const computedGoals = data.goals.map((goal) => {
       const logs = data.logs.filter((l) => String(l.goalId) === String(goal.id));
       const doneHours = logs.reduce((sum, l) => sum + l.hours, 0);
       const byDay = {};
@@ -209,7 +247,32 @@ export function useMetas() {
         state: completed ? "completada" : overdue ? "vencida" : "activa",
       };
     });
+
+    // Sesiones de estudio general / libre (sin meta vinculada)
+    const generalLogs = data.logs.filter((l) => String(l.goalId) === "general");
+    const generalDoneHours = generalLogs.reduce((sum, l) => sum + l.hours, 0);
+    const generalByDay = {};
+    generalLogs.forEach((l) => {
+      generalByDay[l.date] = (generalByDay[l.date] || 0) + l.hours;
+    });
+    const generalWeekHours = generalLogs
+      .filter((l) => weekKeys.has(l.date))
+      .reduce((sum, l) => sum + l.hours, 0);
+
+    const computedGeneral = {
+      id: "general",
+      name: "Estudio general",
+      goalHours: generalDoneHours,
+      doneHours: generalDoneHours,
+      byDay: generalByDay,
+      todayHours: generalByDay[today] || 0,
+      weekHours: generalWeekHours,
+      state: "general",
+      isGeneral: true,
+    };
+
+    return { goals: computedGoals, generalGoal: computedGeneral };
   }, [data]);
 
-  return { goals, addGoal, updateGoal, deleteGoal, logHours, undoToday };
+  return { goals, generalGoal, addGoal, updateGoal, deleteGoal, logHours, undoToday };
 }
